@@ -101,6 +101,39 @@ is( exception {
   $Foo->add_method('bork', $bork_blessed);
 }, undef, 'can add blessed sub as method');
 
+{
+  package Dispatching::Meta::Method;
+  sub new {
+    my ($class, $method) = @_;
+    return bless { method => $method }, $class;
+  }
+  sub can {
+    my $self = shift;
+    return $self->SUPER::can(@_)
+      unless ref $self;
+    $self->{method}->can(@_);
+  }
+  sub AUTOLOAD {
+    my $method = our $AUTOLOAD;
+    $method =~ s/.*:://;
+    my $self = shift;
+    return $self->${\"SUPER::$method"}(@_)
+      unless ref $self;
+    $self->{method}->$method(@_);
+  }
+}
+
+my $wark = Dispatching::Meta::Method->new(
+  Class::MOP::Method->wrap(sub { 5 },
+    name => 'wark',
+    package_name => 'Other::Package',
+  )
+);
+
+is( exception {
+  $Foo->add_method('wark', $wark);
+}, undef, 'can add wrapped meta method as method');
+
 # now check all our other items ...
 
 ok( $Foo->has_method('FOO_CONSTANT'),
@@ -148,6 +181,7 @@ for my $method_name (
     blah
     bang
     bork
+    wark
     evaled_foo
     FOO_CONSTANT/
     ) {
@@ -188,7 +222,7 @@ is( $Foo->get_method('not_a_real_method'), undef,
 
 is_deeply(
     [ sort $Foo->get_method_list ],
-    [qw(FOO_CONSTANT baaz bang bar baz blah bork cake evaled_foo floob foo pie)],
+    [qw(FOO_CONSTANT baaz bang bar baz blah bork cake evaled_foo floob foo pie wark)],
     '... got the right method list for Foo'
 );
 
@@ -211,6 +245,7 @@ is_deeply(
             baz
             blah
             bork
+            wark
             cake
             evaled_foo
             floob
@@ -229,7 +264,7 @@ isnt( exception { Foo->foo }, undef, '... cannot call Foo->foo because it is not
 
 is_deeply(
     [ sort $Foo->get_method_list ],
-    [qw(FOO_CONSTANT baaz bang bar baz blah bork cake evaled_foo floob pie)],
+    [qw(FOO_CONSTANT baaz bang bar baz blah bork cake evaled_foo floob pie wark)],
     '... got the right method list for Foo'
 );
 
@@ -285,6 +320,7 @@ is_deeply(
                     baz
                     blah
                     bork
+                    wark
                     cake
                     evaled_foo
                     floob

@@ -54,7 +54,11 @@ sub add_method {
     my $package_name = $self->name;
 
     my $body;
-    if ( blessed($method) && $method->isa('Class::MOP::Method') ) {
+    if ( blessed($method)
+      && $method->can('body')
+      && $method->can('package_name')
+      && $method->can('clone')
+      && $method->can('attach_to_class') ) {
         $body = $method->body;
         if ( $method->package_name ne $package_name ) {
             $method = $method->clone(
